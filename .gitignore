@@ -2,3 +2,4 @@
 /.aws-sam/
 /lambda/coverage.out
 /venv/
+.idea

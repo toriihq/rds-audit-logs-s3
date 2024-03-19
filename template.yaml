@@ -9,13 +9,11 @@ Metadata:
   AWS::ServerlessRepo::Application:
     Name: rds-audit-logs-s3
     Description: Lambda function to ingest RDS instance audit logs to S3
-    Author: Personio GmbH
-    SpdxLicenseId: MIT
-    LicenseUrl: LICENSE.txt
+    Author: Torii
     ReadmeUrl: README.md
     Labels: [ 'rds', 's3', 'lambda', 'logs', 'audit' ]
-    HomePageUrl: https://github.com/personio/rds-audit-logs-s3
-    SourceCodeUrl: https://github.com/personio/rds-audit-logs-s3
+    HomePageUrl: https://github.com/toriihq/rds-audit-logs-s3
+    SourceCodeUrl: https://github.com/toriihq/rds-audit-logs-s3
 
 Parameters:
   Name:
@@ -74,6 +72,18 @@ Parameters:
       - 731
       - 1827
       - 3653
+  IsolatedSubnet:
+    Type: String
+    Description: Subnet ID to use for the Lambda function
+  SecurityGroup:
+    Type: String
+    Description: Security group ID to use for the Lambda function
+  RDSInterfaceEndpoint:
+    Type: String
+    Description: RDS endpoint to use for the Lambda function
+  DynamoDBTable:
+    Type: String
+    Description: DynamoDB table name to use for the Lambda function
 
 Globals:
   Function:
@@ -107,6 +117,12 @@ Resources:
           S3_BUCKET_NAME: !Ref BucketName
           DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
           DEBUG: !Ref LambdaDebug
+          RDS_INTERFACE_ENDPOINT: !Ref RDSInterfaceEndpoint
+      VpcConfig:
+        SubnetIds:
+          - !Ref IsolatedSubnet
+        SecurityGroupIds:
+          - !Ref SecurityGroup
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
@@ -138,16 +154,10 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/${Name}"
       RetentionInDays: !Ref LambdaLogRetention
 
-  DynamoDBTable:
-    Type: AWS::Serverless::SimpleTable
-    Properties:
-      PrimaryKey:
-        Name: id
-        Type: String
-      TableName: !Ref Name
-
 Outputs:
   LambdaFunctionArn:
     Value: !GetAtt RdsAuditLogsS3Function.Arn
   LambdaFunctionName:
     Value: !Ref RdsAuditLogsS3Function
+  FunctionLogGroup:
+    Value: !Ref RdsAuditLogsS3FunctionLogGroup

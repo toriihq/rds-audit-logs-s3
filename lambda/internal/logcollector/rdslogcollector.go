@@ -35,7 +35,7 @@ func (l *LogFile) String() string {
 }
 
 func (l *LogFile) IsRotatedFile() bool {
-	matched, err := regexp.Match(`\.log\.\d+$`, []byte(l.LogFileName))
+	matched, err := regexp.Match(`\.log[\.\d-]*\.\d+$`, []byte(l.LogFileName))
 	if err != nil {
 		log.Warnf("Error matching log file: %v", err)
 		return false
@@ -52,16 +52,18 @@ type RdsLogCollector struct {
 	dbType             string
 	logType            string
 	logFile            string
+	RDSInterfaceEndpoint string
 }
 
-func NewRdsLogCollector(api rdsiface.RDSAPI, httpClient HTTPClient, region string, rdsInstanceIdentifier string, dbType string) *RdsLogCollector {
+func NewRdsLogCollector(api rdsiface.RDSAPI, httpClient HTTPClient, region string, rdsInstanceIdentifier string, dbType string, RDSInterfaceEndpoint string) *RdsLogCollector {
 	return &RdsLogCollector{
 		rds:                api,
 		region:             region,
 		httpClient:         httpClient,
 		dbType:             dbType,
-		logFile:            "audit/server_audit.log",
+		logFile:            "audit/audit.log",
 		instanceIdentifier: rdsInstanceIdentifier,
+		RDSInterfaceEndpoint: RDSInterfaceEndpoint,
 	}
 }
 
@@ -144,6 +146,9 @@ func (c *RdsLogCollector) getLogs(logFileTimestamp int64, retries int) (io.Reade
 func (c *RdsLogCollector) downloadLogFile(currentLogFile LogFile) (io.ReadCloser, error) {
 	client := c.httpClient
 	host := fmt.Sprintf("https://rds.%s.amazonaws.com", c.region)
+	if c.RDSInterfaceEndpoint != "" {
+	    host = fmt.Sprintf("https://%s", c.RDSInterfaceEndpoint)
+	}
 
 	req, err := http.NewRequest("GET", host, nil)
 	if err != nil {
@@ -175,6 +180,7 @@ func (c *RdsLogCollector) setRdsInstanceDBType(instance *rds.DBInstance) error {
 	var dbType string
 	switch engine {
 	case "mariadb":
+	case "aurora-mysql":
 		dbType = "mysql"
 	case "postgres":
 		dbType = "postgres"
@@ -220,7 +226,7 @@ func (c *RdsLogCollector) getLogFiles(retries int) ([]LogFile, error) {
 
 	var matchingLogFiles []LogFile
 	for _, lf := range logFiles {
-		if strings.HasPrefix(lf.LogFileName, c.logFile) {
+		if strings.HasPrefix(lf.LogFileName, c.logFile) && lf.Size > 0 {
 			matchingLogFiles = append(matchingLogFiles, lf)
 		}
 	}

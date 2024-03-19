@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"strconv"
 )
 
 type AuditLogParser struct {
@@ -34,10 +35,11 @@ func (p *AuditLogParser) ParseEntries(data io.Reader, logFileTimestamp int64) ([
 			return nil, fmt.Errorf("could not parse data")
 		}
 
-		ts, err := time.Parse("20060102 15:04:05", record[0])
+		unixMicro, err := strconv.ParseInt(record[0], 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse time: %v", err)
 		}
+		ts := time.UnixMicro(unixMicro)
 
 		newTS := entity.LogEntryTimestamp{
 			Year:  ts.Year(),

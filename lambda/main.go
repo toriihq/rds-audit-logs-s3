@@ -16,6 +16,8 @@ import (
 	"rdsauditlogss3/internal/parser"
 	"rdsauditlogss3/internal/processor"
 	"rdsauditlogss3/internal/s3writer"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"strings"
 )
 
 // HandlerConfig holds the configuration for the lambda function
@@ -25,6 +27,7 @@ type HandlerConfig struct {
 	DynamoDbTableName     string `envconfig:"DYNAMODB_TABLE_NAME" required:"true" desc:"DynamoDb table name"`
 	AwsRegion             string `envconfig:"AWS_REGION" required:"true" desc:"AWS region"`
 	Debug                 bool   `envconfig:"DEBUG" required:"true" desc:"Enable debug mode."`
+	RDSInterfaceEndpoint string `envconfig:"RDS_INTERFACE_ENDPOINT" required:"false" desc:"RDS interface endpoint"`
 }
 
 type lambdaHandler struct {
@@ -35,6 +38,10 @@ type lambdaHandler struct {
 func (lh *lambdaHandler) Handler() error {
 	err := lh.processor.Process()
 	if err != nil {
+		if strings.Contains(err.Error(), "file was rotated when getting the logs") {
+			log.Warn(err.Error())
+			return nil
+		}
 		log.WithError(err).Errorf("Error in Lambda function")
 		return fmt.Errorf("error in Lambda function")
 	}
@@ -42,6 +49,8 @@ func (lh *lambdaHandler) Handler() error {
 }
 
 func main() {
+	// use JSONFormatter
+	log.SetFormatter(&log.JSONFormatter{})
 	var c HandlerConfig
 	err := envconfig.Process("", &c)
 	if err != nil {
@@ -52,10 +61,27 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
+    // Initialize AWS session with custom endpoint resolver
+    sessionConfig := &aws.Config{
+        Region: aws.String(c.AwsRegion),
+        // Define custom endpoint resolver
+        EndpointResolver: endpoints.ResolverFunc(func(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
+            if service == "rds" && c.RDSInterfaceEndpoint != "" {
+                // Replace "your-custom-endpoint" with your actual custom RDS endpoint
+                return endpoints.ResolvedEndpoint{
+                    URL: "https://" + c.RDSInterfaceEndpoint,
+                }, nil
+            }
+            // Return default resolver for other services
+            return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
+        }),
+    }
+
+
 	// Initialize AWS session
-	sessionConfig := &aws.Config{
-		Region: aws.String(c.AwsRegion),
-	}
+	// sessionConfig := &aws.Config{
+	// 	Region: aws.String(c.AwsRegion),
+	// }
 	sess := session.New(sessionConfig)
 
 	// Create & start lambda handler
@@ -71,6 +97,7 @@ func main() {
 				c.AwsRegion,
 				c.RdsInstanceIdentifier,
 				"mysql",
+				c.RDSInterfaceEndpoint,
 			),
 			s3writer.NewS3Writer(
 				s3manager.NewUploader(sess),

@@ -104,6 +104,8 @@ Resources:
       Handler: lambda
       MemorySize: !Ref LambdaMemorySize
       Timeout: !Ref LambdaTimeout
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:49"
       Events:
         TriggerEvent:
           Type: Schedule
@@ -147,6 +149,7 @@ Resources:
                   - kms:Decrypt
                 Resource: !Ref KmsKeyArn
           - !Ref "AWS::NoValue"
+        - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
 
   RdsAuditLogsS3FunctionLogGroup:
     Type: AWS::Logs::LogGroup

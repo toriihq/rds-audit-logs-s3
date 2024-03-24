@@ -40,6 +40,7 @@ func (s *s3Writer) upload(key string, data io.Reader) error {
 		Bucket: aws.String(s.bucketName),
 		Key:    aws.String(key),
 		Body:   data,
+		StorageClass: aws.String("STANDARD_IA"),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload file, %v", err)

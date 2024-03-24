@@ -102,7 +102,7 @@ func main() {
 			s3writer.NewS3Writer(
 				s3manager.NewUploader(sess),
 				c.S3BucketName,
-				fmt.Sprintf("%s/%s", c.RdsInstanceIdentifier, "audit-logs"),
+				fmt.Sprintf("rds-instance=%s", c.RdsInstanceIdentifier),
 			),
 			parser.NewAuditLogParser(),
 			c.RdsInstanceIdentifier,

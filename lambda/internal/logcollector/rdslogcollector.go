@@ -247,7 +247,10 @@ func (c *RdsLogCollector) getLogFiles(retries int) ([]LogFile, error) {
 func findLogFileNewerThanTimestamp(logFiles []LogFile, finishedLogFileTimestamp int64) (*LogFile, error) {
 	sort.SliceStable(logFiles, func(i, j int) bool { return logFiles[i].LastWritten < logFiles[j].LastWritten })
 
-	for _, l := range logFiles {
+	length := len(logFiles)
+	// The newest 4 files are always the rotated files so we don't want to touch them (yet)
+	// https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html
+	for _, l := range logFiles[:length-4] {
 		if l.LastWritten > finishedLogFileTimestamp && l.IsRotatedFile() {
 			return &l, nil
 		}

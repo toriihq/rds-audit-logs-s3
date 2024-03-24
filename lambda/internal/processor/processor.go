@@ -9,6 +9,7 @@ import (
 	"rdsauditlogss3/internal/logcollector"
 	"rdsauditlogss3/internal/parser"
 	"rdsauditlogss3/internal/s3writer"
+	"strings"
 )
 
 type Processor struct {
@@ -53,6 +54,9 @@ func (p *Processor) Process() error {
 	for {
 		logLines, ok, logFileTimestamp, err := p.logcollector.GetLogs(currentLogFileTimestamp)
 		if err != nil {
+			if strings.Contains(err.Error(), "status code is 400") {
+				continue
+			}
 			return fmt.Errorf("could not start logcollector: %v", err)
 		}
 		if !ok {
